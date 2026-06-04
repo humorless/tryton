@@ -1,0 +1,80 @@
+services:
+  # PostgreSQL Database Server
+  postgres:
+    image: postgres:16-alpine
+    container_name: tryton-postgres
+    environment:
+      POSTGRES_DB: tryton
+      POSTGRES_USER: tryton
+      POSTGRES_PASSWORD: tryton_password
+    volumes:
+      - tryton-database:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - tryton
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tryton"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Tryton Application Server
+  trytond:
+    image: tryton/tryton:8.0-office
+    container_name: tryton-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TRYTOND_DATABASE_URI: postgresql://tryton:tryton_password@postgres:5432/tryton
+      TRYTOND_ADMIN_PASSWD: admin
+      TRYTOND_DB_HOST: postgres
+      TRYTOND_DB_PORT: 5432
+      TRYTOND_DB_USER: tryton
+      TRYTOND_DB_PASSWORD: tryton_password
+      TRYTOND_DB_NAME: tryton
+      # 可選：設定日誌級別
+      # LOG_LEVEL: info
+    volumes:
+      - tryton-data:/var/lib/trytond
+      - ./trytond.conf:/etc/trytond/trytond.conf:ro
+    ports:
+      - "8000:8000"
+    networks:
+      - tryton
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    # 初始化數據庫命令（首次運行時使用）
+    # command: trytond-admin -c /etc/trytond/trytond.conf -u all -d tryton
+
+  # 可選：Nginx 反向代理（生產環境推薦）
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: tryton-nginx
+  #   depends_on:
+  #     - trytond
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   networks:
+  #     - tryton
+  #   restart: unless-stopped
+
+volumes:
+  tryton-database:
+    driver: local
+  tryton-data:
+    driver: local
+
+networks:
+  tryton:
+    driver: bridge
