@@ -39,7 +39,7 @@ services:
       # LOG_LEVEL: info
     volumes:
       - tryton-data:/var/lib/trytond
-      - ./trytond.conf:/etc/trytond/trytond.conf:ro
+      - ./trytond.conf:/etc/trytond.conf:ro
     ports:
       - "8000:8000"
     networks:

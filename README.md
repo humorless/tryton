@@ -1,6 +1,6 @@
 # Tryton Docker Setup
 
-這個 docker-compose 配置可以快速啟動完整的 Tryton ERP 系統，包含 PostgreSQL 資料庫和應用伺服器。
+這個 docker compose 配置可以快速啟動完整的 Tryton ERP 系統，包含 PostgreSQL 資料庫和應用伺服器。
 
 ## 系統要求
 
@@ -14,19 +14,13 @@
 ### 1. 啟動服務
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 ### 2. 初始化資料庫（首次運行）
 
 ```bash
-docker-compose exec trytond trytond-admin -c /etc/trytond/trytond.conf -u all -d tryton
-```
-
-或者使用以下命令一步完成：
-
-```bash
-docker-compose run --rm trytond trytond-admin -c /etc/trytond/trytond.conf -u all -d tryton
+docker compose exec trytond trytond-admin -c /etc/trytond.conf -u ir -d tryton
 ```
 
 ### 3. 存取 Tryton
@@ -42,7 +36,7 @@ http://localhost:8000/
 
 ## 配置說明
 
-### docker-compose.yml
+### docker compose.yml
 
 包含以下服務：
 
@@ -70,42 +64,42 @@ Tryton 配置檔，包含：
 
 ```bash
 # 查看所有服務日誌
-docker-compose logs -f
+docker compose logs -f
 
 # 只查看 Tryton 伺服器日誌
-docker-compose logs -f trytond
+docker compose logs -f trytond
 
 # 只查看資料庫日誌
-docker-compose logs -f postgres
+docker compose logs -f postgres
 ```
 
 ### 停止服務
 
 ```bash
 # 停止但保留卷
-docker-compose stop
+docker compose stop
 
 # 停止並移除容器（卷保留）
-docker-compose down
+docker compose down
 
 # 完全清除（包括卷）
-docker-compose down -v
+docker compose down -v
 ```
 
 ### 重新啟動
 
 ```bash
-docker-compose restart trytond
+docker compose restart trytond
 ```
 
 ### 進入容器 Shell
 
 ```bash
 # Tryton 伺服器
-docker-compose exec trytond sh
+docker compose exec trytond sh
 
 # 資料庫
-docker-compose exec postgres psql -U tryton -d tryton
+docker compose exec postgres psql -U tryton -d tryton
 ```
 
 ## 安全建議
@@ -113,11 +107,11 @@ docker-compose exec postgres psql -U tryton -d tryton
 ### 生產環境更改
 
 1. **更改預設密碼**
-   - 編輯 `docker-compose.yml` 中的密碼
+   - 編輯 `docker compose.yml` 中的密碼
    - 執行資料庫初始化後更改 admin 用戶密碼
 
 2. **啟用 SSL/TLS**
-   - 在 `docker-compose.yml` 中取消註釋 Nginx 反向代理
+   - 在 `docker compose.yml` 中取消註釋 Nginx 反向代理
    - 配置 SSL 證書
 
 3. **限制資料庫存取**
@@ -126,7 +120,7 @@ docker-compose exec postgres psql -U tryton -d tryton
 
 4. **更新預設管理員密碼**
    ```bash
-   docker-compose exec trytond trytond-admin -c /etc/trytond/trytond.conf -u admin -d tryton
+   docker compose exec trytond trytond-admin -c /etc/trytond.conf -u admin -d tryton
    ```
 
 ## 故障排除
@@ -135,23 +129,23 @@ docker-compose exec postgres psql -U tryton -d tryton
 
 檢查 PostgreSQL 是否正確啟動：
 ```bash
-docker-compose logs postgres
+docker compose logs postgres
 ```
 
-確保密碼和連接設定符合 `docker-compose.yml` 和 `trytond.conf`。
+確保密碼和連接設定符合 `docker compose.yml` 和 `trytond.conf`。
 
 ### 無法存取 Web 介面
 
 1. 檢查 Tryton 伺服器是否執行中：
    ```bash
-   docker-compose logs trytond
+   docker compose logs trytond
    ```
 
 2. 檢查連接埠 8000 是否被佔用
 
 3. 嘗試重啟服務：
    ```bash
-   docker-compose restart trytond
+   docker compose restart trytond
    ```
 
 ### 資料庫初始化失敗
@@ -159,7 +153,7 @@ docker-compose logs postgres
 1. 確保 PostgreSQL 已完全啟動（檢查健康檢查）
 2. 查看詳細日誌：
    ```bash
-   docker-compose logs trytond
+   docker compose logs trytond
    ```
 3. 嘗試手動運行初始化命令並查看輸出
 
@@ -168,33 +162,33 @@ docker-compose logs postgres
 ### 備份資料庫
 
 ```bash
-docker-compose exec postgres pg_dump -U tryton tryton > backup.sql
+docker compose exec postgres pg_dump -U tryton tryton > backup.sql
 ```
 
 ### 還原資料庫
 
 ```bash
-docker-compose exec -T postgres psql -U tryton tryton < backup.sql
+docker compose exec -T postgres psql -U tryton tryton < backup.sql
 ```
 
 ## 升級 Tryton
 
-1. 更新 docker-compose.yml 中的 Tryton 映像版本
+1. 更新 docker compose.yml 中的 Tryton 映像版本
 2. 停止現有服務：
    ```bash
-   docker-compose down
+   docker compose down
    ```
 3. 拉取新映像：
    ```bash
-   docker-compose pull
+   docker compose pull
    ```
 4. 啟動新服務：
    ```bash
-   docker-compose up -d
+   docker compose up -d
    ```
 5. 更新所有模組：
    ```bash
-   docker-compose exec trytond trytond-admin -c /etc/trytond/trytond.conf -u all -d tryton
+   docker compose exec trytond trytond-admin -c /etc/trytond.conf -u all -d tryton
    ```
 
 ## 詳細資訊
