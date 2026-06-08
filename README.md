@@ -11,28 +11,88 @@
 
 ## 快速開始
 
-### 1. 啟動服務
+### 1. 啟動 PostgreSQL
 
 ```bash
-docker compose up -d
+docker compose up -d postgres
 ```
 
-### 2. 初始化資料庫（首次運行）
+### 2. 初始化資料庫（首次運行，臨時容器）
 
 ```bash
-docker compose exec trytond trytond-admin -c /etc/trytond.conf -u ir -d tryton
+docker compose run -it --rm trytond trytond-admin -d tryton --all
 ```
 
-### 3. 存取 Tryton
+系統會提示你輸入：
+- **管理員電郵**
+- **管理員密碼**（2 次確認）
+
+  ```
+  "admin" email for "tryton" (empty for none): 
+  "admin" password for "tryton": 
+  "admin" password confirmation: 
+  ```
+
+#### 📦 模組選擇指南
+
+初始化過程中會詢問要激活的模組。**初學者建議激活以下基礎模組**：
+
+| 模組 | 說明 | 激活 |
+|------|------|------|
+| **party** | 客戶、供應商、員工管理 | ✅ |
+| **product** | 產品/商品管理 | ✅ |
+| **account** | 會計/財務 | ✅ |
+| **company** | 公司管理 | ✅ |
+| **currency** | 貨幣管理 | ✅ |
+| **sale** | 銷售訂單 | ✅ |
+| **stock** | 庫存/倉庫管理 | ✅ |
+| **country** | 國家/地區資料 | ✅ |
+
+**系統會自動識別並升級相關依賴模組**（如 account_invoice、account_product 等），直接確認激活即可。
+
+⚠️ **提示**：不要激活過多模組，會讓介面變得複雜。可以在 Web 登入後，從「模組管理」頁面再激活其他需要的模組。
+
+### 3. 啟動 Tryton 伺服器
+
+```bash
+docker compose up -d trytond
+```
+
+### 4. 從 Web 登入
 
 打開瀏覽器訪問：
 ```
 http://localhost:8000/
 ```
 
-預設登入帳號：
+登入帳號：
 - **用戶名**: admin
-- **密碼**: admin（初始密碼，建議更改）
+- **密碼**: 初始化時設置的密碼
+
+## 從 Web 登入後
+
+### 🚀 初學者建議
+
+成功登入後，你可以開始學習和探索 Tryton：
+
+1. **熟悉基礎數據設定**
+   - 建立公司資訊（Administration → Company）
+   - 設定主帳戶和帳戶科目（Accounting → Charts of Accounts）
+   - 建立產品類別和產品
+
+2. **創建測試數據**
+   - 新增客戶和供應商（Party）
+   - 建立產品
+   - 嘗試建立銷售訂單並追蹤流程
+
+3. **探索核心功能**
+   - 查看各個模組的功能和使用方式
+   - 瞭解業務流程（如銷售訂單 → 發票 → 付款）
+   - 查看和自訂報表
+
+4. **激活額外模組**
+   - 從「模組管理」頁面可以啟用或停用模組
+   - 根據業務需求逐步啟用其他功能模組
 
 ## 配置說明
 
@@ -118,9 +178,9 @@ docker compose exec postgres psql -U tryton -d tryton
    - 移除或更改資料庫的外部連接埠（目前為 5432）
    - 只允許 Tryton 容器連接
 
-4. **更新預設管理員密碼**
+4. **重置管理員密碼**
    ```bash
-   docker compose exec trytond trytond-admin -c /etc/trytond.conf -u admin -d tryton
+   docker compose exec trytond trytond-admin -d tryton --reset-password
    ```
 
 ## 故障排除
@@ -150,12 +210,18 @@ docker compose logs postgres
 
 ### 資料庫初始化失敗
 
-1. 確保 PostgreSQL 已完全啟動（檢查健康檢查）
-2. 查看詳細日誌：
+1. 確保 PostgreSQL 已完全啟動：
    ```bash
-   docker compose logs trytond
+   docker compose logs postgres
    ```
-3. 嘗試手動運行初始化命令並查看輸出
+2. 檢查 PostgreSQL 連接：
+   ```bash
+   docker compose exec postgres pg_isready -U tryton
+   ```
+3. 重新運行初始化命令：
+   ```bash
+   docker compose run -it --rm trytond trytond-admin -d tryton --all
+   ```
 
 ## 備份和還原
 
@@ -173,22 +239,26 @@ docker compose exec -T postgres psql -U tryton tryton < backup.sql
 
 ## 升級 Tryton
 
-1. 更新 docker compose.yml 中的 Tryton 映像版本
-2. 停止現有服務：
+1. 停止所有服務：
    ```bash
    docker compose down
    ```
+2. 更新 docker-compose.yml 中的 Tryton 映像版本
 3. 拉取新映像：
    ```bash
    docker compose pull
    ```
-4. 啟動新服務：
+4. 啟動 PostgreSQL：
    ```bash
-   docker compose up -d
+   docker compose up -d postgres
    ```
-5. 更新所有模組：
+5. 更新所有模組（臨時容器）：
    ```bash
-   docker compose exec trytond trytond-admin -c /etc/trytond.conf -u all -d tryton
+   docker compose run -it --rm trytond trytond-admin -d tryton --all
+   ```
+6. 啟動新的 Tryton 伺服器：
+   ```bash
+   docker compose up -d trytond
    ```
 
 ## 詳細資訊
