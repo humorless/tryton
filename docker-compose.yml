@@ -37,6 +37,8 @@ services:
       TRYTOND_DB_NAME: tryton
       # 可選：設定日誌級別
       # LOG_LEVEL: info
+      # 增加 Worker 超時時間以處理模組升級
+      GUNICORN_TIMEOUT: 300
     volumes:
       - tryton-data:/var/lib/trytond
       - ./trytond.conf:/etc/trytond.conf:ro
