@@ -1,0 +1,6 @@
+# secrets
+id_pw.md
+
+# python bytecode (written back through the docker bind mount)
+__pycache__/
+*.pyc
