@@ -262,7 +262,6 @@ docker compose exec -T postgres psql -U tryton tryton < backup.sql
 ## 詳細資訊
 
 - [Tryton 官方文件](https://docs.tryton.org/)
-- [Tryton Docker 映像](https://hub.docker.com/_/tryton)
 - [PostgreSQL 官方文件](https://www.postgresql.org/docs/)
 
 ## 相關討論

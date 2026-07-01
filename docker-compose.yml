@@ -29,12 +29,6 @@ services:
         condition: service_healthy
     environment:
       TRYTOND_DATABASE_URI: postgresql://tryton:tryton_password@postgres:5432/tryton
-      TRYTOND_ADMIN_PASSWD: admin
-      TRYTOND_DB_HOST: postgres
-      TRYTOND_DB_PORT: 5432
-      TRYTOND_DB_USER: tryton
-      TRYTOND_DB_PASSWORD: tryton_password
-      TRYTOND_DB_NAME: tryton
       # 可選：設定日誌級別
       # LOG_LEVEL: info
       # 增加 Worker 超時時間以處理模組升級
