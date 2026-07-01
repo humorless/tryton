@@ -40,13 +40,11 @@ docker compose run -it --rm trytond trytond-admin -d tryton --all
 | 模組 | 說明 | 激活 |
 |------|------|------|
 | **party** | 客戶、供應商、員工管理 | ✅ |
-| **product** | 產品/商品管理 | ✅ |
-| **account** | 會計/財務 | ✅ |
-| **company** | 公司管理 | ✅ |
 | **currency** | 貨幣管理 | ✅ |
-| **sale** | 銷售訂單 | ✅ |
+| **company** | 公司管理 | ✅ |
+| **account** | 會計/財務 | ✅ |
+| **account_invoice** | 應收/應付發票，銷售和採購的財務閉環靠它 | ✅ |
 | **stock** | 庫存/倉庫管理 | ✅ |
-| **country** | 國家/地區資料 | ✅ |
 
 **系統會自動識別並升級相關依賴模組**（如 account_invoice、account_product 等），直接確認激活即可。
 
