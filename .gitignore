@@ -4,3 +4,7 @@ id_pw.md
 # python bytecode (written back through the docker bind mount)
 __pycache__/
 *.pyc
+
+# 
+.DS_Store
+manuals/.DS_Store

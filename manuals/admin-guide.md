@@ -1,0 +1,222 @@
+# Admin User 操作手冊
+
+給「設定 ERP」的人看。對照 [`user-guide.md`](user-guide.md)（ordinary user 操作）與 [`../tryton_business_flow.md`](../tryton_business_flow.md)（整體課程）服用。
+
+> 版本：`tryton/tryton:8.0-office`（docker-compose.yml）。網路上 Tryton 教學多半是 6.0 時代寫的，選單文字/位置在 8.0 大致沿用但偶有差異，本文件的選單路徑以**實際跑過並截圖確認**為準；還沒實測的步驟會標註「⬜ 待做（未驗證選單路徑）」。
+
+## 環境現況（2026-07-02 用 psql 直查資料庫確認）
+
+已啟用模組：
+
+| 模組 | 狀態 |
+|------|------|
+| `company` | ✅ activated |
+| `currency` | ✅ activated |
+| `party` | ✅ activated |
+| `account` | ✅ activated |
+| `account_invoice` | ✅ activated |
+| `account_product` | ✅ activated |
+| `stock` | ✅ activated |
+| `sale` | ⬜ 尚未啟用（Day 4 前需要） |
+| `purchase` | ⬜ 尚未啟用（Day 3 前需要） |
+| `production` | ⬜ 尚未啟用（Day 5 前需要） |
+| `hello_world` | ✅ activated（自訂模組，見 [`../docs/custom-modules.md`](../docs/custom-modules.md)） |
+
+使用者：
+
+| login | name | 狀態 |
+|-------|------|------|
+| `admin` | Administrator | ✅ 已可登入 |
+| `aaa` | — | ⬜ **`id_pw.md` 裡有帳密規劃，但 `res_user` 表裡還不存在** → 這是 Day 1 admin 任務之一：建立專屬的 ordinary user 帳號，不要一直用 admin 測操作流程 |
+
+`company_company` / `party_party`：（2026-07-02 更新）已各有 1 筆——`REPLWARE Co., Ltd.`（Party id=1）／Company id=1（currency=TWD），並已設為 admin 的 Current Company。
+
+---
+
+## Day 1｜地基（admin 部分）
+
+對應 [`tryton_business_flow.md`](../tryton_business_flow.md) Day 1 的「建立基礎資料」時段。
+
+### Step 1：Admin 登入 Web
+
+- 狀態：✅ 完成
+- URL：`http://localhost:8000/`
+- 帳密：見 `id_pw.md`（已加入 `.gitignore`，不會進版控，本文件不重複寫密碼明文）
+
+### Step 2：確認已啟用模組
+
+- 狀態：✅ 完成（見上方「環境現況」表）
+- UI 對應路徑：Administration ‣ Modules（或 8.0 選單若改名，實際點過後回來更新這裡）
+
+### Step 3：建立 Party（公司本身）、Currency、Company、設定 Current Company
+
+- 狀態：✅ 完成
+- **修正**：一開始誤以為 Company 表單會直接內嵌 Party 欄位（同一張表）。用 `psql` 查 `company_company` schema 後確認：`company_company.party` 是 `NOT NULL` + `UNIQUE` 的 FK，指向獨立的 `party_party` 表。Tryton 沒有 Odoo 那種 delegation inheritance，Company 是靠 Many2One 關聯到一筆真正獨立的 Party 記錄，**不是同一筆資料**。
+- 實際走的路徑：先建 Party，再建 Currency，再建 Company，最後設定 Current Company
+
+**執行記錄**
+
+| 子步驟 | 狀態 | 備註 |
+|--------|------|------|
+| 建立 Party | ✅ 完成 | `REPLWARE Co., Ltd.`（id=1, code=1），地址：No. 119, Sec. 1, Chongqing S. Rd, Taipei 100004。Country/Subdivision 沒填，不影響存檔，之後開統一發票／VAT 相關功能可能要補 |
+| 建立 Currency | ✅ 完成 | `Taiwan Dollar` / TWD（id=1），rounding 0.01，digits 2，Numeric Code 901（ISO 4217）。已補上 base currency 慣例的 Rate：2026-07-02 / 1.000000（官方建議單一幣別時把該幣別的 Rate 設為 1，見 [Currency Usage](https://docs.tryton.org/7.2/modules-currency/usage.html)），Current rate 顯示 1.000000 |
+| 建立 Company | ✅ 完成 | `company_company` id=1，party=`REPLWARE Co., Ltd.`，currency=`Taiwan Dollar`，timezone 自動帶出 `Asia/Taipei` |
+| 設為 Current Company | ✅ 完成（過程中卡關一次，見下方） | `res_user.company` 已確認為 `1` |
+
+**卡關記錄：右上角 Preferences 一開始選不到 Company**
+
+- 現象：Administrator（右上角）→ Preferences，Company 下拉選單是空的/選不了
+- 原因：User 模型有兩個欄位——`companies`（這個使用者被允許切換的公司清單，多選）跟 `company`（目前生效的那間，單選）。**Preferences 的 Company 下拉只會列出已經在 `companies` 清單裡的公司**，新建的 Company 不會自動加進任何使用者的允許清單，所以清單是空的
+- 正確做法：Administration ‣ User ‣ Users → 開 `admin` 使用者 → **Companies** 分頁 → 把 `REPLWARE Co., Ltd.` 加進去 → **存檔**（這步容易漏，勾選之後沒按 Save 等於沒發生——第一次操作時就漏了這步，`res_user-company_company` 關聯表當時查出來是 0 筆）
+- 補存檔後複查：`res_user-company_company` 有一筆 `user=1, company=1`
+- 存檔後回到 Preferences，Company 下拉列出 `REPLWARE Co., Ltd.`，選定並存檔，複查 `res_user.company = 1` 確認生效
+
+📸 `day1-admin-01-party-form.png`、`day1-admin-02-currency-form.png`、`day1-admin-03-company-form.png`、`day1-admin-04-user-companies-field.png`（卡關瞬間：已勾選但還沒存檔）、`day1-admin-05-preferences-current-company.png`（已存檔，見 `assets/`）
+
+### Step 4：建立 Chart of Accounts（用內建 Universal 範本）
+
+- 狀態：✅ 完成（2026-07-03，psql 複查）
+- **選單路徑更正**：實際是 Financial（財務）‣ Configuration ‣ **Templates** ‣ **Create Chart of Accounts from Template**（不在 General Account 底下，且是 Accounts 複數；同層還有一個對稱的 "Update Chart of Accounts from Template" 是之後範本更新用的，這次不用點）
+- **範本更正**：8.0 沒有叫「Minimal」的範本，可選清單裡是 **Universal Chart of Accounts**，這就是通用/最簡版，直接選這個即可
+- wizard 分兩步：
+  1. 選 Company（`REPLWARE Co., Ltd.`）+ Account Template（`Universal Chart of Accounts`）
+  2. 選預設科目：Default Receivable Account／Default Payable Account／Default Revenue Account／Default Expense Account（此時科目表已經在背後建好，這幾個欄位是從已建好的科目裡挑出常用的設成預設值，之後開發票/建 Product 會自動帶出）
+- 四個 Default Account 的挑選建議（Universal 範本內建分類科目，對應一般商品貿易情境）：
+
+  | 欄位 | 選定 | 理由 |
+  |------|------|------|
+  | Default Receivable Account | 1.2.1 - Accounts, Notes And Loans Receivable | 標準應收帳款，Contracts／Nontrade 是特殊情境用 |
+  | Default Payable Account | 2.1.1 - Trade Payables | 標準應付帳款，Dividends／Other Payable 不適用一般進貨 |
+  | Default Revenue Account | 4.1.1 - Goods | **更正**：4.x 底下不是「商品 vs 服務」分類，查了 `account_account_template` 範本階層後確認是 **ASC 606 收入認列時間點**分類：`4.1.0 Recognized Point Of Time` vs `4.2.0 Recognized Over Time`，`4.1.1 Goods` 跟 `4.2.1 Products` 都是實體商品，差別在認列時機。一般貿易情境交貨當下就完成履約義務、認列收入，屬於 Point of Time，所以選 4.1.1（不是單純因為「賣商品」） |
+  | Default Expense Account | 5.2.1 - Cost Of Sales | 對應同一批 point-of-time 認列商品的銷貨成本（COGS） |
+
+  > 補充：Day 5 若做 `production` 模組遇到長期生產合約、分階段驗收的情境，那類收入才會用到 `4.2.x Recognized Over Time`；這裡選的只是「最常見、最大量一般銷售」的預設值，不影響之後個別交易另外指定科目。
+
+**執行結果（psql 複查，2026-07-03）**
+
+- `account_account` 表：company=1 底下共建立 **135 筆**科目（Universal 範本全套）
+- 抽查四個關鍵科目代碼確實存在：`1.2.1 Accounts, Notes And Loans Receivable`、`2.1.1 Trade Payables`、`4.1.1 Goods`、`5.2.1 Cost Of Sales`
+- 四個 Default Account 實際存放位置：`account_configuration_default_account` 表（公司層級單例設定，不是掛在 Party 或 Product Category 上）：
+  - `default_account_receivable` → id 39（1.2.1）
+  - `default_account_payable` → id 67（2.1.1）
+  - `default_category_account_revenue` → id 99（4.1.1）
+  - `default_category_account_expense` → id 112（5.2.1）
+  - （順帶確認：`party_party_account`／`product_category_account` 這兩張表目前是空的，代表這組預設值是全公司通用的 fallback，之後個別 Party 或 Product Category 若沒特別覆寫，開發票時就會吃這裡的值）
+
+- 📸 `day1-admin-06-create-chart-wizard.png`（選單定位）、`day1-admin-07-coa-wizard-template.png`（步驟一：Company + Template）、`day1-admin-08-coa-wizard-defaults.png`（步驟二：預設科目，四個欄位當時還沒填）、`day1-admin-09-coa-search-receivable.png`／`day1-admin-10-coa-search-payable.png`／`day1-admin-11-coa-search-revenue.png`／`day1-admin-12-coa-search-expense.png`（各科目的搜尋清單）、`day1-admin-13-coa-wizard-defaults-filled.png`（四個欄位填好，尚未按 CREATE）
+
+### Step 5：建立 Fiscal Year
+
+- 狀態：✅ 完成（2026-07-03，psql 複查）
+- 選單路徑：Financial ‣ Configuration ‣ Fiscal Years ‣ Fiscal Years
+- 填寫內容：Name=`2026`（慣例：公司會計年度跟日曆年一致時直接填年度數字），Start Date=01/01/2026，End Date=12/31/2026，Company=`REPLWARE Co., Ltd.`，State=Open
+- 建立 Fiscal Year 後，用 **Create Periods** wizard 產生標準的月份 Period（不建 Period，之後任何交易都記不進帳）
+
+**卡關記錄：Pre-validation 錯誤 "Move Sequence" is required**
+
+- 現象：存檔／按 Create Periods 時跳出「The values of "Invoice Sequences" are not valid. "Move Sequence" is required.」
+- 原因：Fiscal Year 表單除了 Periods 分頁，還有一個 **Sequences** 分頁，用來指定這個會計年度的傳票／發票編號規則（`ir.sequence`）。因為 `account_invoice` 模組已啟用，Sequences 分頁下至少 Move Sequence 是必填，發票相關序號可能也需要
+- 處理方式：改用獨立分頁建立，而不是表單欄位旁邊的快速新增小視窗，方便之後管理／重複使用。**選單路徑：Administration ‣ Sequences ‣ Sequences Strict**（不是旁邊的普通 "Sequences"——查過 schema，Move Sequence／Invoice Sequence 欄位的 FK 指向 `ir_sequence_strict` 表，跟一般 `ir_sequence` 是不同 model，普通 Sequences 清單建的記錄在 Fiscal Year 表單裡搜尋不到）。共需建 5 筆：
+
+  | Sequence | Name | Sequence Type | Prefix |
+  |---|---|---|---|
+  | Move Sequence 用 | `Move 2026` | Account Move | `${date_Y}-` |
+  | Customer Invoice Sequence 用 | `Customer Invoice 2026` | Invoice | `${date_Y}-CI-` |
+  | Customer Credit Note Sequence 用 | `Customer Credit Note 2026` | Invoice | `${date_Y}-CC-` |
+  | Supplier Invoice Sequence 用 | `Supplier Invoice 2026` | Invoice | `${date_Y}-SI-` |
+  | Supplier Credit Note Sequence 用 | `Supplier Credit Note 2026` | Invoice | `${date_Y}-SC-` |
+
+  （查過 `ir_sequence_type` 表，發票四種共用同一個 "Invoice" 類型，只是各自獨立命名/編號；系統原本就有的 8 筆序號是 Party／Shipment 類／Inventory／Account Move **Reconciliation**——最後這筆容易跟 Account Move 搞混，但它是沖銷專用，不能拿來當 Move Sequence 用）
+
+  每一筆建立時的欄位設定（查過 `ir_model_field` 確認）：
+  - **Type**：選 **Incremental**（另兩個選項 Decimal/Hexadecimal Timestamp 是用時間戳記算短碼，條碼/標籤用途，不適合連號記帳；系統內建 8 筆序號也都是 Incremental）
+  - **Prefix**：`${date_Y}-`（Tryton 支援 `${date_Y}` 這種 strftime 格式化語法，會自動代入當下年份變成 `2026-`），四個 Invoice Sequence 可各自加識別字，例如 Customer Invoice 用 `${date_Y}-CI-`
+  - **Suffix**：留空
+  - **Padding**：5 或 6（決定編號補零位數，例如 5 → `00001`）
+  - **Number Increment**：預設 1，不用改
+
+  建好 5 筆後回 Fiscal Year 分頁，Move Sequence／四個 Invoice Sequence 欄位改用搜尋既有的方式選進去 → 存檔 → 再按 Create Periods
+
+  **執行結果（psql 複查 `ir_sequence_strict`，2026-07-03）**：5 筆全數存檔成功，欄位與上表設計一致（皆為 `incremental`、padding=5、increment=1、company=1／REPLWARE）：
+
+  | id | name | prefix | sequence_type |
+  |---|---|---|---|
+  | 1 | Move 2026 | `${date_Y}-` | Account Move |
+  | 2 | Customer Invoice 2026 | `${date_Y}-CI-` | Invoice |
+  | 3 | Customer Credit Note 2026 | `${date_Y}-CC-` | Invoice |
+  | 4 | Supplier Invoice 2026 | `${date_Y}-SI-` | Invoice |
+  | 5 | Supplier Credit Note 2026 | `${date_Y}-SC-` | Invoice |
+- 📸 `day1-admin-17-sequences-list.png`（Administration ‣ Sequences 清單，注意：這是普通 `ir.sequence`，跟下面要用的 Sequences Strict 是不同清單，僅供對照原有 8 筆內建序號）、`day1-admin-18-move-sequence-form.png`（Move 2026 表單，Preview 欄位顯示 `2026-00001`）、`day1-admin-19-fiscal-year-sequences-filled.png`（Fiscal Year 的 Sequences 分頁，5 個欄位都已指定並存檔成功）
+
+**執行結果（psql 複查 `account_fiscalyear` / `account_fiscalyear_invoice_sequence`，2026-07-03）**
+
+- Fiscal Year：id=2，Name=`2026`，2026-01-01～2026-12-31，State=Open，`move_sequence` 正確指向 `Move 2026`
+- Invoice Sequences：`out_invoice_sequence`→`Customer Invoice 2026`、`out_credit_note_sequence`→`Customer Credit Note 2026`、`in_invoice_sequence`→`Supplier Invoice 2026`、`in_credit_note_sequence`→`Supplier Credit Note 2026`（Tryton 命名習慣：`out_` 指開給客戶的單據，`in_` 指收到的供應商單據）
+- Periods：回 Periods 分頁按 **Create Periods** wizard（Frequency=Monthly，End Day=31，皆為預設值不用改）→ psql 複查 `account_period` 表，`fiscalyear=2` 底下正確產生 12 筆，`2026-01`～`2026-12`，日期正確對齊月底（2 月 28、4/6/9/11 月 30），`type=standard`、`state=open`
+- 📸 `day1-admin-20-create-periods-wizard.png`（Create Periods wizard 畫面）
+
+**概念筆記：每個新 Fiscal Year 都要新建 Sequence 嗎？**
+
+- 查 `account_fiscalyear` 表 schema 確認：`move_sequence` 欄位有 **UNIQUE 約束**（`account_fiscalyear_move_sequence_unique`），資料庫層級強制一個 Move Sequence 只能屬於一個 Fiscal Year
+- 交叉驗證：Tryton 核心開發者 Cédric Krier 在 [tryton Google Groups 討論串](https://tryton.narkive.com/4ke4rW5t/do-we-need-to-create-new-post-move-invoice-and-credit-note-sequences-for-every-fiscal-year)（原討論發生於 2014 年，narkive 為第三方 Google Groups 封存鏡像）明確回答「Yes」，原因是 Tryton 允許在開新年度後仍對**尚未關閉**的舊年度補開發票，若兩年共用同一組序號會讓單一年度內號碼出現缺口，所以用 constraint 強制 Move Sequence 每年必須不同；8.0 額外支援同一 Fiscal Year 底下按 Period（月）再細分序號
+- 四個 Invoice Sequence 沒有類似 DB 約束，技術上可以讓多個年度共用同一筆、編號跨年累加不歸零（同討論串 Guillem Barba 確認）；但 Cédric 也警告這樣做在「新年度已開始、仍補開舊年度發票」的情境下，反而會在單一年度內產生號碼缺口，兩種做法互有取捨
+- Tryton 主要維護公司 B2CK 自己的實務做法（Cédric 原話）：Prefix 用年份、序號每年歸零重新從 1 開始——法國稅務單位 BOFiP 的規定也證實這樣做合法（只要求同一年內不重複，不要求跨年連續）
+- 本環境採用跟 B2CK 相同的「每年新建 5 筆、Prefix 帶年份、歸零重來」，是業界最常見、最不容易踩坑的預設做法
+- 📸 `day1-admin-14-fiscal-year-form.png`（表單本體）、`day1-admin-15-fiscal-year-sequence-error.png`（Pre-validation 錯誤畫面）、`day1-admin-16-fiscal-year-sequences-tab.png`（Sequences 分頁：Move Sequence + Invoice Sequences 四個子欄位，皆為必填但當時未填）
+
+**概念筆記：Sequence 是什麼**
+
+- `ir.sequence` 是 Tryton 通用的自動編號產生器，出貨單、採購單、發票、傳票都靠它產生連續不重複的號碼；跟台灣國稅局配發的統一發票字軌**概念類似（都要求連號）但機制不同層級**——Tryton 的 Sequence 是公司自己在系統裡定義的內部規則，統一發票號碼則是國稅局依法配發、企業不能自訂，兩者不能直接畫等號，若要讓 Tryton 開的發票號碼符合台灣電子發票規範需要另外客製/串接（待查證是否有現成在地化模組，見 [`automation-notes.md`](automation-notes.md)）
+- 連號編號本身只是「其中一塊防弊積木」：它讓稽核可以事後檢查號碼有沒有缺口，但真正防止事後竄改帳目的是 Tryton 的另一個機制——分錄一旦過帳（Posted）就唯讀不可修改／刪除，只能用沖銷分錄反轉，搭配 `create_uid`/`write_uid` 異動軌跡。兩者搭配才有完整的稽核意義，單靠連號防不了假帳
+
+**概念筆記：為什麼 Move/Invoice Sequence 一定要用 `ir.sequence.strict`，不能用一般 `ir.sequence`？**
+
+- 查 schema 證實這是寫死的，不是選項：`account_fiscalyear.move_sequence` 跟 `account_fiscalyear_invoice_sequence` 的四個 Sequence 欄位，FK 全部指向 `ir_sequence_strict` 表，不是 `ir_sequence`，一般 Sequences 清單建的記錄在這些欄位裡搜尋不到
+- 兩種 model 的差別在「取號時的鎖定強度」：
+  - `ir.sequence`（用在 Shipment、Party 編號這類）：取號用比較輕量的鎖，效能好，但極端高並發下理論上有極小機率非原子操作
+  - `ir.sequence.strict`：取號用更嚴格的資料庫鎖（等同 `SELECT ... FOR UPDATE`），保證就算兩個人/兩個程序同時過帳，也絕對不會兩筆分錄拿到同一個號碼或跳號
+- 會計分錄跟發票號碼牽涉法規稽核，號碼重複/跳號不可接受，所以 Tryton 在 model 設計上就把這五個欄位鎖死只能用 Strict 版本，用效能換取「絕對不出錯」的保證
+
+### Step 6（追加，原 business_flow 沒明講但實務必做）：建立 ordinary user 帳號
+
+- 狀態：✅ 完成（2026-07-03，psql 複查）
+- 選單路徑：Administration ‣ User ‣ Users → New
+- 填寫內容：Name=`Test User`、Login=`aaa`、Email=`aaa@replware.dev`、Password（見 `id_pw.md`）、Companies 分頁已加入 `REPLWARE Co., Ltd.`（這次記得建立當下就加，不會重踩 Step 3 那個 Preferences 選不到公司的坑）
+- **Group 指派更正**：原本以為要指派 Party/Product/Sale/Purchase 相關 Group，但查了 `res_group` 表後發現這個系統目前只有 `Party Administration`／`Product Administration` 這種「管理」版本的群組，**沒有**一般使用者版本；`sale`／`purchase` 的 Group 也還不存在（模組未啟用）。研判 Party/Product 基礎資料的一般瀏覽/建立預設不需要掛 Group，只有管理設定層級才需要——Access Permissions 分頁先不勾直接存檔，之後 Day 2 用 `aaa` 實際登入測試能不能看到 Party/Product 選單，看不到再回來查是哪個 Group／`ir.rule` 卡住
+- 這樣 Day 2 之後可以真的用「ordinary user 視角」登入操作，而不是一直用 admin 假扮
+- 📸 `day1-admin-21-aaa-user-form.png`（User 表單，Login/Password/Companies 已填，Access Permissions 尚未設定）
+
+**執行結果（psql 複查，2026-07-03）**
+
+- `res_user`：id=3，login=`aaa`，name=`Test User`，email=`aaa@replware.dev`，active=true，**company=1**（建立當下就設好 Current Company，不用像 admin 當初那樣事後補）
+- `res_user-company_company`：user=3／company=1，一筆 ✅
+- `res_user-res_group`：**0 筆**，跟預期一致（Access Permissions 沒勾任何 Group）——留待 Day 2 用 `aaa` 實際登入測試選單可視性，見上方「Group 指派更正」
+
+---
+
+## Day 3 前置（admin 部分）：啟用 purchase 模組
+
+- 狀態：⬜ 待做
+- 兩種做法：
+  1. UI：Administration ‣ Modules，找到 `purchase`，點 Activate，存檔後點「Perform Pending Actions」
+  2. CLI（見 [`automation-notes.md`](automation-notes.md)）：`docker compose exec trytond trytond-admin -d tryton -u purchase --activate-dependencies`，之後 `docker compose restart trytond` 讓 worker 重載
+
+## Day 4 前置（admin 部分）：啟用 sale 模組
+
+- 狀態：⬜ 待做，同上做法，模組換成 `sale`
+
+## Day 5 前置（admin 部分）：啟用 production 模組
+
+- 狀態：⬜ 待做，同上做法，模組換成 `production`
+
+---
+
+## Day 7｜會計閉環（admin 視角要看的報表）
+
+- 狀態：⬜ 待做
+- 損益表 / 資產負債表選單路徑：待實測後補上
+
+## Day 8｜`ir.model` 探索
+
+- 狀態：⬜ 待做
+- 這一段其實可以直接用 psql 查 `ir_model` / `ir_model_field` 表更快，見 [`automation-notes.md`](automation-notes.md)
