@@ -50,10 +50,10 @@ docker compose run -it --rm trytond trytond-admin -d tryton --all
 
 ⚠️ **提示**：不要激活過多模組，會讓介面變得複雜。可以在 Web 登入後，從「模組管理」頁面再激活其他需要的模組。
 
-### 3. 啟動 Tryton 伺服器
+### 3. 啟動 Tryton 伺服器與 Cron 排程服務
 
 ```bash
-docker compose up -d trytond
+docker compose up -d trytond cron
 ```
 
 ### 4. 從 Web 登入
@@ -107,6 +107,10 @@ http://localhost:8000/
 - **trytond**: Tryton 應用伺服器
   - 監聽連接埠: 8000
   - 資料卷: tryton-data（用於附件和上傳文件）
+
+- **cron**: Tryton 排程服務
+  - 處理定時任務（如逾期提醒、排程動作等）
+  - 依賴 trytond 啟動並就緒後才會執行
 
 ### trytond.conf
 

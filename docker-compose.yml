@@ -54,6 +54,26 @@ services:
     # 初始化數據庫命令（首次運行時使用）
     # command: trytond-admin -c /etc/trytond/trytond.conf -u all -d tryton
 
+  # Tryton Cron 排程服務（處理定時任務，如逾期提醒、排程動作等）
+  cron:
+    image: tryton/tryton:8.0-office
+    container_name: tryton-cron
+    depends_on:
+      postgres:
+        condition: service_healthy
+      trytond:
+        condition: service_healthy
+    environment:
+      TRYTOND_DATABASE_URI: postgresql://tryton:tryton_password@postgres:5432/tryton
+    volumes:
+      - tryton-data:/var/lib/trytond/db
+      - ./modules/hello_world:/usr/local/lib/python3.13/dist-packages/trytond/modules/hello_world
+      - ./trytond.conf:/etc/trytond.conf:ro
+    networks:
+      - tryton
+    restart: unless-stopped
+    command: trytond-cron -c /etc/trytond.conf -d tryton
+
   # 可選：Nginx 反向代理（生產環境推薦）
   # nginx:
   #   image: nginx:alpine
