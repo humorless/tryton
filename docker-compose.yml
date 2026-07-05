@@ -34,7 +34,7 @@ services:
       # 增加 Worker 超時時間以處理模組升級
       GUNICORN_TIMEOUT: 300
     volumes:
-      - tryton-data:/var/lib/trytond
+      - tryton-data:/var/lib/trytond/db
       # Tryton 8.0 只會掃描 trytond 套件自己安裝目錄下的 modules/，
       # 或透過 pip 的 trytond.modules entry point；不存在 [modules] path 這種設定，
       # 所以自訂模組要逐一掛進 site-packages 對應子目錄，且目錄名稱需與
