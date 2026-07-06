@@ -8,3 +8,4 @@ __pycache__/
 # 
 .DS_Store
 manuals/.DS_Store
+manuals/assets/.DS_Store

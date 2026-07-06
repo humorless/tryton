@@ -192,6 +192,21 @@
 - `res_user-company_company`：user=3／company=1，一筆 ✅
 - `res_user-res_group`：**0 筆**，跟預期一致（Access Permissions 沒勾任何 Group）——留待 Day 2 用 `aaa` 實際登入測試選單可視性，見上方「Group 指派更正」
 
+**概念筆記：User 表單 Password 欄位的 SHOW 按鈕，為什麼按了還是顯示 `xxxxxxxx`**
+
+- 現象：編輯既有 User（例如 `admin`、`aaa`）時，Password 欄位按 SHOW 只會看到一串 `xxxxxxxx`，不是真正的密碼
+- 查 `res_user` 表結構發現有 `password` 和 `password_hash` 兩個欄位；實查資料：`password` 欄位是 **NULL**，真正存的是 `password_hash`，格式是 `$argon2id$v=19$m=655...`（Argon2id 雜湊）
+- 結論：**Tryton 資料庫從未存過明碼密碼**，SHOW 按鈕不可能真的還原密碼——`xxxxxxxx` 只是固定的遮罩佔位符，不是加密後可還原的內容。連 admin 自己都無法在後台看到任何使用者（包含自己）的真實密碼，忘記密碼只能重設、不能找回
+- SHOW 按鈕真正的用途：讓操作者**在這次輸入時**快速 double check 剛打的字有沒有打對（把 `type="password"` 切成 `type="text"` 顯示明文），不是拿來查詢舊密碼——這也解釋了為什麼編輯舊帳號時按 SHOW 沒有意義，只有「正在輸入新密碼」時才有用
+- 呼應本文件的密碼安全規範：密碼絕不明碼寫入任何 manuals/文件，只寫「見 `id_pw.md`」——這點 Tryton 自己在資料庫層級也是同樣的設計原則
+
+**追加動作（2026-07-06）：`aaa` 加入 Product Administration 群組**
+
+- 原因：`user-guide.md` Step 3（建立 Product）前置要求，見 `ir_model_access` 查證結果（`product.template` 無 Group 預設唯讀）
+- 選單路徑：Administration ‣ User ‣ Users → `aaa` → Access Permissions 分頁 → 勾選 **Product Administration** → 存檔
+- 📸 `day1-admin-22-aaa-access-permissions.png`
+- **執行結果（psql 複查）**：`res_user-res_group` 查到 1 筆，`user=3`（aaa）／`group=8`（Product Administration），確認存檔成功
+
 ---
 
 ## Day 3 前置（admin 部分）：啟用 purchase 模組
