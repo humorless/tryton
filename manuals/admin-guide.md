@@ -18,9 +18,10 @@
 | `account_product` | ✅ activated |
 | `stock` | ✅ activated |
 | `sale` | ⬜ 尚未啟用（Day 4 前需要） |
-| `purchase` | ⬜ 尚未啟用（Day 3 前需要） |
-| `production` | ⬜ 尚未啟用（Day 5 前需要） |
+| `purchase` | ⬜ 尚未啟用（Day 2 前需要，2026-07-07 已將 Day 2／Day 3 順序對調，見 [`user-guide.md`](user-guide.md)） |
 | `hello_world` | ✅ activated（自訂模組，見 [`../docs/custom-modules.md`](../docs/custom-modules.md)） |
+
+> **化簡（2026-07-07）**：原本這裡還列了 `production`（Day 5 前需要），但這份計劃鎖定「進書、庫存、賣書」的純貿易情境，不需要製造模組，已從模組清單與 Day 5–6 拿掉，見 [`../docs/tryton_business_flow.md`](../docs/tryton_business_flow.md)。
 
 使用者：
 
@@ -90,7 +91,7 @@
   | Default Revenue Account | 4.1.1 - Goods | **更正**：4.x 底下不是「商品 vs 服務」分類，查了 `account_account_template` 範本階層後確認是 **ASC 606 收入認列時間點**分類：`4.1.0 Recognized Point Of Time` vs `4.2.0 Recognized Over Time`，`4.1.1 Goods` 跟 `4.2.1 Products` 都是實體商品，差別在認列時機。一般貿易情境交貨當下就完成履約義務、認列收入，屬於 Point of Time，所以選 4.1.1（不是單純因為「賣商品」） |
   | Default Expense Account | 5.2.1 - Cost Of Sales | 對應同一批 point-of-time 認列商品的銷貨成本（COGS） |
 
-  > 補充：Day 5 若做 `production` 模組遇到長期生產合約、分階段驗收的情境，那類收入才會用到 `4.2.x Recognized Over Time`；這裡選的只是「最常見、最大量一般銷售」的預設值，不影響之後個別交易另外指定科目。
+  > 補充：`4.2.x Recognized Over Time` 是給長期生產合約、分階段驗收的情境用的（例如有 `production` 模組的製造業）；這份計劃鎖定純貿易的書店情境，用不到這類收入認列，這裡選的就是「最常見、最大量一般銷售」的預設值，不影響之後個別交易另外指定科目。
 
 **執行結果（psql 複查，2026-07-03）**
 
@@ -209,29 +210,54 @@
 
 ---
 
-## Day 3 前置（admin 部分）：啟用 purchase 模組
+## Day 2 前置（admin 部分）：啟用 purchase 模組
 
 - 狀態：⬜ 待做
+- **順序更正（2026-07-07）**：`aaa` 加入 Stock 群組、Location 結構這組原本標的是「Day 2 前置」，因為原始規劃 Day 2 是庫存盤點。後來發現一個全新環境沒有 Day 2（採購入庫）先跑過的話，庫存操作會因為沒有真實庫存而卡在 Assign 這步，所以把 Day 2／Day 3 對調（Day 2 改採購、Day 3 改庫存盤點），這裡也跟著往前搬，見 [`user-guide.md`](user-guide.md)
 - 兩種做法：
   1. UI：Administration ‣ Modules，找到 `purchase`，點 Activate，存檔後點「Perform Pending Actions」
   2. CLI（見 [`automation-notes.md`](automation-notes.md)）：`docker compose exec trytond trytond-admin -d tryton -u purchase --activate-dependencies`，之後 `docker compose restart trytond` 讓 worker 重載
+
+---
+
+## Day 3 前置（admin 部分）：`aaa` 加入 Stock 群組
+
+- 狀態：✅ 完成（2026-07-07，psql 複查）
+- 原因：查了 `ir_model_access` 表，`stock.inventory`／`stock.move`／`stock.shipment.internal` 這三個 Day 3 會用到的 model，無 Group 的預設權限是**全擋**（`perm_read/write/create/delete` 全部 `false`），必須掛 **Stock** 群組（`res_group` id=10）才能操作；`stock.location` 無 Group 預設是**唯讀**，要編輯倉庫/儲位結構才需要更高權限的 **Stock Administration** 群組（id=11）
+- **不用掛 Stock Administration**：查了 `stock_location` 表，這個環境的 Warehouse／Location 結構其實在 `stock` 模組啟用時就自動產生好了（見下方「環境現況」），書店這種單一門市情境直接沿用即可，`aaa` 不需要編輯 Location，掛 **Stock** 群組（一般操作）就夠
+- 選單路徑：Administration ‣ User ‣ Users → `aaa` → Access Permissions 分頁 → 勾選 **Stock** → 存檔
+
+**環境現況（psql 複查，2026-07-07）：`stock_location` 已有預設結構，不用重建**
+
+| id | name | code | type | parent |
+|----|------|------|------|--------|
+| 5 | Warehouse | WH | warehouse | — |
+| 1 | Input Zone | IN | storage | 5 |
+| 3 | Storage Zone | STO | storage | 5 |
+| 2 | Output Zone | OUT | storage | 5 |
+| 4 | Lost and Found | — | lost_found | — |
+| 6 | Supplier | SUP | supplier | — |
+| 7 | Customer | CUS | customer | — |
+| 8 | Transit | — | storage | — |
+
+📸 `day3-admin-01-aaa-stock-group.png`（Access Permissions 分頁，Stock 已勾選）
+
+**執行結果（psql 複查，2026-07-07）**：`res_user-res_group` 查到 `aaa` 現有 2 筆——`group=8`（Product Administration）、`group=10`（Stock）。
+
+---
 
 ## Day 4 前置（admin 部分）：啟用 sale 模組
 
 - 狀態：⬜ 待做，同上做法，模組換成 `sale`
 
-## Day 5 前置（admin 部分）：啟用 production 模組
-
-- 狀態：⬜ 待做，同上做法，模組換成 `production`
-
 ---
 
-## Day 7｜會計閉環（admin 視角要看的報表）
+## Day 5｜會計閉環（admin 視角要看的報表）
 
 - 狀態：⬜ 待做
 - 損益表 / 資產負債表選單路徑：待實測後補上
 
-## Day 8｜`ir.model` 探索
+## Day 6｜`ir.model` 探索
 
 - 狀態：⬜ 待做
 - 這一段其實可以直接用 psql 查 `ir_model` / `ir_model_field` 表更快，見 [`automation-notes.md`](automation-notes.md)

@@ -41,7 +41,7 @@
 
 ### 本學習計劃使用的模組
 
-以下是本文件 Day 1–8 實際會用到的完整清單：
+以下是本文件 Day 1–6 實際會用到的完整清單：
 
 ```
 account
@@ -53,10 +53,9 @@ party
 purchase
 sale
 stock
-production
 ```
 
-> **注意**：`production` 在這裡是為了跑通製造流程（Day 5–6）而裝，不代表它是所有場景的 minimum set。真實客戶的 minimum set 應該從業務需求反推，而不是預先全裝。
+> **注意（2026-07-07 更正）**：原本這裡還規劃了 `production`（Day 5–6 製造流程），但這份計劃鎖定的情境是「進書、庫存、賣書」的純貿易業務（例如書店），沒有加工/組裝的需求，所以拿掉了 `production` 與對應的 Day 5–6。真實客戶的 minimum set 應該從業務需求反推，而不是預先全裝——這裡就是一個實例：一開始規劃時把 production 放進去是預先多裝，後來確認用不到就拿掉。
  
 ---
  
@@ -74,21 +73,7 @@ production
  
 ---
  
-## Day 2｜Use Case 3：庫存盤點（3 hr）
- 
-**目標：理解 Stock Move 是 Tryton 庫存的核心**
- 
-| 時間 | 內容 |
-|------|------|
-| 1 hr | 建立 Warehouse、Location 結構（Storage, Input, Output, Lost & Found） |
-| 1 hr | 手動建立 Internal Shipment，感受 Stock Move 怎麼產生 |
-| 1 hr | 跑一次完整盤點：建盤點單 → 輸入實際數 → 確認 → 看庫差 Move |
- 
-**關鍵概念：** 所有庫存異動本質上都是 `Stock Move`（from location → to location），盤點只是其中一種觸發方式。
- 
----
- 
-## Day 3｜Use Case 1：採購到入庫（3 hr）
+## Day 2｜Use Case 1：採購到入庫（3 hr）
  
 **目標：跑通 Purchase → Supplier Shipment → Stock**
  
@@ -99,6 +84,22 @@ production
 | 1 hr | 查庫存數量確認有變動、看自動產生的 Stock Move 明細 |
  
 **關鍵概念：** Tryton 的採購不會直接異動庫存，中間一定經過 Shipment，這個設計是刻意的。
+
+**順序更正（2026-07-07）**：原始規劃是 Day 2 先做庫存盤點／內部調撥、Day 3 才做採購，但實測發現一個全新環境裡 Day 1 建立的 Product 只是型錄資料，並不代表任何地點有真實庫存——沒有先跑過採購入庫，庫存操作（Internal Shipment）在 Assign 這步會卡關（"Unable to assign these products"）。改成 **Day 2 先採購入庫（本頁），Day 3 才做庫存盤點／內部調撥**，這樣 Day 3 開始操作時 Input Zone 已經有 Day 2 採購入庫產生的真實庫存，不用另外想辦法生出庫存數字，也更貼近真實商業邏輯（先進貨才有貨可以搬/盤）。
+ 
+---
+ 
+## Day 3｜Use Case 3：庫存盤點（3 hr）
+ 
+**目標：理解 Stock Move 是 Tryton 庫存的核心**
+ 
+| 時間 | 內容 |
+|------|------|
+| 1 hr | **看懂**（不是建立）預設 Warehouse／Location 結構：`stock` 模組一啟用就會自動產生一組堪用的骨架（Warehouse／Input／Output／Storage／Lost & Found／Supplier／Customer／Transit）。單一門市/單一倉庫的情境（例如書店）直接沿用這組即可，不用重建；只有真的需要第二個實體倉庫或門市，才動手加新的 Location |
+| 1 hr | 手動建立 Internal Shipment，感受 Stock Move 怎麼產生（Day 2 採購入庫後 Input Zone 已有真實庫存，這裡才搬得動） |
+| 1 hr | 跑一次完整盤點：建盤點單 → 輸入實際數 → 確認 → 看庫差 Move |
+ 
+**關鍵概念：** 所有庫存異動本質上都是 `Stock Move`（from location → to location），盤點只是其中一種觸發方式。Location 結構只是「這批異動要怎麼分類」的骨架，Tryton 給的預設骨架多半就夠用，不是每個環境都要手動從零蓋。
  
 ---
  
@@ -110,41 +111,13 @@ production
 |------|------|
 | 0.5 hr | 設定客戶資料、Price List（用最簡單的固定價） |
 | 1.5 hr | 建銷售單 → 確認 → 系統產生 Customer Shipment → 出貨確認 |
-| 1 hr | 對照 Day 3，觀察採購與銷售流程的對稱性，加深記憶 |
+| 1 hr | 對照 Day 2，觀察採購與銷售流程的對稱性，加深記憶 |
  
 **關鍵概念：** Sale 和 Purchase 流程幾乎對稱，學完採購後銷售會快很多。刻意比較兩者差異。
  
 ---
  
-## Day 5｜Use Case 4：製造流程 Part 1（3 hr）
- 
-**目標：建立 BOM 與工單，理解製造資料結構**
- 
-| 時間 | 內容 |
-|------|------|
-| 1 hr | 建立成品 Product、原料 Product，設定正確的 Product Type |
-| 1 hr | 建立 Bill of Materials（BOM）：指定用料與數量 |
-| 1 hr | 建立 Production Order → 確認 → 觀察系統自動帶入的用料清單 |
- 
-**關鍵概念：** BOM 是製造的規格書，Production Order 是執行實例，兩者分開是刻意設計。
- 
----
- 
-## Day 6｜Use Case 4：製造流程 Part 2（3 hr）
- 
-**目標：跑通用料記錄到庫存異動**
- 
-| 時間 | 內容 |
-|------|------|
-| 1 hr | 對 Production Order 執行 Assign（分配庫存）→ 確認原料夠用 |
-| 1 hr | 記錄實際用料（可以與 BOM 不同）→ 完工確認 |
-| 1 hr | 查看系統產生的所有 Stock Move，對照原料消耗與成品入庫 |
- 
-**關鍵概念：** 製造完工會同時產生兩筆 Move：原料出庫 + 成品入庫，這是 Tryton 製造模組的核心動作。
- 
----
- 
-## Day 7｜整合與會計閉環（3 hr）
+## Day 5｜整合與會計閉環（3 hr）
  
 **目標：補上發票與收付款，讓商業循環完整閉合**
  
@@ -158,13 +131,13 @@ production
  
 ---
  
-## Day 8｜整合與除錯（3 hr）
+## Day 6｜整合與除錯（3 hr）
  
 **目標：建立系統性理解，準備獨立探索**
  
 | 時間 | 內容 |
 |------|------|
-| 1 hr | 從頭跑一次最複雜的流程（製造），不看筆記 |
+| 1 hr | 從頭跑一次完整的商業循環（採購入庫 → 銷售出庫 → 發票收付款），不看筆記 |
 | 1 hr | 刻意製造錯誤（庫存不足、狀態不對）→ 看錯誤訊息 → 學會除錯 |
 | 1 hr | 看 Tryton 的 Model 結構（用 `ir.model` 查），建立「資料在哪裡」的直覺 |
  
@@ -178,7 +151,6 @@ production
  
 ```
 採購入庫  →  ＋庫存
-製造領料  →  －庫存（原料）＋庫存（成品）
 銷售出庫  →  －庫存
 盤點調整  →  ±庫存（修正誤差）
 ```
@@ -187,12 +159,11 @@ production
 ```
 採購 → 入庫 → 廠商發票 → 付款 → 反映應付／現金
 銷售 → 出庫 → 客戶發票 → 收款 → 反映應收／現金
-製造 → 成本自動帶入發票
 ```
 ### Stock Move 是底層機制
  
-不管是採購、銷售、製造、盤點，最終都落地到 `Stock Move`（from location → to location）。
-`purchase`、`sale`、`production` 都只是觸發庫存異動的不同原因。
+不管是採購、銷售、盤點，最終都落地到 `Stock Move`（from location → to location）。
+`purchase`、`sale` 都只是觸發庫存異動的不同原因。
  
 ---
  
