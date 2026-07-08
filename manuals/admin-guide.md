@@ -1,6 +1,6 @@
 # Admin User 操作手冊
 
-給「設定 ERP」的人看。對照 [`user-guide.md`](user-guide.md)（ordinary user 操作）與 [`../tryton_business_flow.md`](../tryton_business_flow.md)（整體課程）服用。
+給「設定 ERP」的人看。對照 [`user-guide.md`](user-guide.md)（ordinary user 操作）與 [`../docs/business_flow.md`](../docs/business_flow.md)（整體課程）服用。
 
 > 版本：`tryton/tryton:8.0-office`（docker-compose.yml）。網路上 Tryton 教學多半是 6.0 時代寫的，選單文字/位置在 8.0 大致沿用但偶有差異，本文件的選單路徑以**實際跑過並截圖確認**為準；還沒實測的步驟會標註「⬜ 待做（未驗證選單路徑）」。
 
@@ -21,7 +21,7 @@
 | `purchase` | ⬜ 尚未啟用（Day 2 前需要，2026-07-07 已將 Day 2／Day 3 順序對調，見 [`user-guide.md`](user-guide.md)） |
 | `hello_world` | ✅ activated（自訂模組，見 [`../docs/custom-modules.md`](../docs/custom-modules.md)） |
 
-> **化簡（2026-07-07）**：原本這裡還列了 `production`（Day 5 前需要），但這份計劃鎖定「進書、庫存、賣書」的純貿易情境，不需要製造模組，已從模組清單與 Day 5–6 拿掉，見 [`../docs/tryton_business_flow.md`](../docs/tryton_business_flow.md)。
+> **化簡（2026-07-07）**：原本這裡還列了 `production`（Day 5 前需要），但這份計劃鎖定「進書、庫存、賣書」的純貿易情境，不需要製造模組，已從模組清單與 Day 5–6 拿掉，見 [`../docs/business_flow.md`](../docs/business_flow.md)。
 
 使用者：
 
@@ -36,7 +36,7 @@
 
 ## Day 1｜地基（admin 部分）
 
-對應 [`tryton_business_flow.md`](../tryton_business_flow.md) Day 1 的「建立基礎資料」時段。
+對應 [`business_flow.md`](../docs/business_flow.md) Day 1 的「建立基礎資料」時段。
 
 ### Step 1：Admin 登入 Web
 

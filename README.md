@@ -176,7 +176,7 @@ docker compose exec postgres psql -U tryton -d tryton
 
 ## 學習操作手冊
 
-跟著 [`tryton_business_flow.md`](docs/tryton_business_flow.md) 課程實際操作的記錄，依 admin／ordinary user 角色分開寫，見 [`manuals/`](manuals/README.md)。
+跟著 [`business_flow.md`](docs/business_flow.md) 課程實際操作的記錄，依 admin／ordinary user 角色分開寫，見 [`manuals/`](manuals/README.md)。
 
 ## 詳細資訊
 

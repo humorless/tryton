@@ -1,6 +1,6 @@
 # 學習操作手冊（manuals/）
 
-依角色切分的 Tryton 操作記錄，對照 [`tryton_business_flow.md`](../docs/tryton_business_flow.md) 的 Day 1–8 課程邊做邊寫。
+依角色切分的 Tryton 操作記錄，對照 [`business_flow.md`](../docs/business_flow.md) 的 Day 1–8 課程邊做邊寫。
 
 - [`admin-guide.md`](admin-guide.md) — admin user：設定 ERP（Company、Chart of Accounts、模組、Fiscal Year…）
 - [`user-guide.md`](user-guide.md) — ordinary user：日常操作 ERP（Party、Product、採購/銷售單、出入庫、發票…）
@@ -8,7 +8,7 @@
 
 ## 記錄原則
 
-1. **只記錄實際跑過的步驟**，還沒做的維持「待做」狀態，不預先杜撰內容（呼應 `tryton_business_flow.md` 的「每個 Use Case 都要實際跑通」原則）
+1. **只記錄實際跑過的步驟**，還沒做的維持「待做」狀態，不預先杜撰內容（呼應 `business_flow.md` 的「每個 Use Case 都要實際跑通」原則）
 2. 每個步驟標記狀態：`✅ 完成` / `🔄 進行中` / `⬜ 待做` / `⚠️ 卡關`
 3. 截圖存到 [`assets/`](assets/)，命名規則：`dayN-<role>-<順序>-<簡短描述>.png`
    例：`day1-admin-01-login.png`、`day1-admin-02-create-company.png`
