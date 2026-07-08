@@ -62,7 +62,7 @@
   - 欄位的 readonly／required 會隨狀態改變（例如 Purchase 的 Payment Term 在 Confirmed 後鎖死）——對應「文件生效後，關鍵條款不能再改」的現實合約概念
   - Party／Product 沒有 `state` 欄位——因為它們是主檔資料，不是文件
 - **狀態機本身不是 Tryton 獨創的概念，幾乎所有正經的 ERP 都有**——SAP 有 Status Management、Odoo（跟 Tryton 同源，都源自早期 TinyERP/OpenERP）也是用 state 欄位＋按鈕驅動、NetSuite／Dynamics 也都有單據狀態的概念，這是 ERP 處理「商業文件生命週期」的業界標準做法
-- **查了官方文件**（[Define workflow — Tryton server](https://docs.tryton.org/7.2/server/tutorial/module/workflow.html)）：Tryton 真正比較特別的地方，是把這個模式做成**框架層級的一等公民**——抽成一個通用的 `Workflow` mixin class，搭配 `_transitions`（明確定義哪些狀態可以轉去哪些狀態，不合法的轉換直接被擋）跟 `@Workflow.transition()` decorator，讓**每個模組都用同一套機制**，不是每個開發者各自寫一套 if/else 判斷狀態的土砲邏輯。這種**跨模組的一致性跟紀律**，才是文件強調的「特色」，而不是「狀態機」這個概念本身
+- **查了官方文件**（[Define workflow — Tryton server](https://docs.tryton.org/8.0/server/tutorial/module/workflow.html)）：Tryton 真正比較特別的地方，是把這個模式做成**框架層級的一等公民**——抽成一個通用的 `Workflow` mixin class，搭配 `_transitions`（明確定義哪些狀態可以轉去哪些狀態，不合法的轉換直接被擋）跟 `@Workflow.transition()` decorator，讓**每個模組都用同一套機制**，不是每個開發者各自寫一套 if/else 判斷狀態的土砲邏輯。這種**跨模組的一致性跟紀律**，才是文件強調的「特色」，而不是「狀態機」這個概念本身
 - **實務上會不會太複雜／over-engineered？**：核心的多階狀態機本身不算太重——不強迫你真的花時間停留在每一階，Quote 完可以馬上接著 Confirm，操作成本沒有比一鍵下單高多少；但像 Process 需要額外的 Purchase Administrator 群組、`invoice_party` 這類服務大型/跨組織採購的彈性欄位，對小規模貿易（例如書店）確實是用不到的複雜度，這是 ERP 類通用軟體常見的取捨：通用性換來的代價是小公司要多認識幾個用不到的概念，好處是公司真的成長到需要職責分離/正式簽核時，不用換系統
 
 ### Step 2：建立 Party（廠商＋客戶）

@@ -60,7 +60,7 @@
 | 子步驟 | 狀態 | 備註 |
 |--------|------|------|
 | 建立 Party | ✅ 完成 | `REPLWARE Co., Ltd.`（id=1, code=1），地址：No. 119, Sec. 1, Chongqing S. Rd, Taipei 100004。Country/Subdivision 沒填，不影響存檔，之後開統一發票／VAT 相關功能可能要補 |
-| 建立 Currency | ✅ 完成 | `Taiwan Dollar` / TWD（id=1），rounding 0.01，digits 2，Numeric Code 901（ISO 4217）。已補上 base currency 慣例的 Rate：2026-07-02 / 1.000000（官方建議單一幣別時把該幣別的 Rate 設為 1，見 [Currency Usage](https://docs.tryton.org/7.2/modules-currency/usage.html)），Current rate 顯示 1.000000 |
+| 建立 Currency | ✅ 完成 | `Taiwan Dollar` / TWD（id=1），rounding 0.01，digits 2，Numeric Code 901（ISO 4217）。已補上 base currency 慣例的 Rate：2026-07-02 / 1.000000（官方建議單一幣別時把該幣別的 Rate 設為 1，見 [Currency Usage](https://docs.tryton.org/8.0/modules-currency/usage.html)），Current rate 顯示 1.000000 |
 | 建立 Company | ✅ 完成 | `company_company` id=1，party=`REPLWARE Co., Ltd.`，currency=`Taiwan Dollar`，timezone 自動帶出 `Asia/Taipei` |
 | 設為 Current Company | ✅ 完成（過程中卡關一次，見下方） | `res_user.company` 已確認為 `1` |
 
