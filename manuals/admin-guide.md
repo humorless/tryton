@@ -102,7 +102,8 @@
   - `default_account_payable` → id 67（2.1.1）
   - `default_category_account_revenue` → id 99（4.1.1）
   - `default_category_account_expense` → id 112（5.2.1）
-  - （順帶確認：`party_party_account`／`product_category_account` 這兩張表目前是空的，代表這組預設值是全公司通用的 fallback，之後個別 Party 或 Product Category 若沒特別覆寫，開發票時就會吃這裡的值）
+  - （順帶確認：`party_party_account`／`product_category_account` 這兩張表目前是空的）
+  - **更正（2026-07-08，Day 2 實測發現）**：原本以為這組公司預設值是「Party／Product Category 沒特別覆寫時的通用 fallback」，Day 2 實測 Purchase Process 時發現這個理解**對 Product Category 不成立**——查了 `account_product/product.py`，`default_category_account_revenue`／`default_category_account_expense` 這兩個 classmethod 只是「新建一個 Product Category 時，Expense/Revenue Account 欄位要不要先幫你帶一個預設值」，不是 runtime 後備方案；一旦 Product 掛了 Category，那個 Category 自己就必須勾 Accounting、填好科目，不會自動退回這裡的公司預設值（不然會直接報錯，見 [`user-guide.md`](user-guide.md) Day 2 概念筆記）。Party 層級的 Receivable／Payable 是否有一樣的落差，這裡沒有實測過，先不要照搬同一套假設
 
 - 📸 `day1-admin-06-create-chart-wizard.png`（選單定位）、`day1-admin-07-coa-wizard-template.png`（步驟一：Company + Template）、`day1-admin-08-coa-wizard-defaults.png`（步驟二：預設科目，四個欄位當時還沒填）、`day1-admin-09-coa-search-receivable.png`／`day1-admin-10-coa-search-payable.png`／`day1-admin-11-coa-search-revenue.png`／`day1-admin-12-coa-search-expense.png`（各科目的搜尋清單）、`day1-admin-13-coa-wizard-defaults-filled.png`（四個欄位填好，尚未按 CREATE）
 
@@ -212,11 +213,64 @@
 
 ## Day 2 前置（admin 部分）：啟用 purchase 模組
 
-- 狀態：⬜ 待做
+- 狀態：✅ 完成（2026-07-08，psql 複查）
 - **順序更正（2026-07-07）**：`aaa` 加入 Stock 群組、Location 結構這組原本標的是「Day 2 前置」，因為原始規劃 Day 2 是庫存盤點。後來發現一個全新環境沒有 Day 2（採購入庫）先跑過的話，庫存操作會因為沒有真實庫存而卡在 Assign 這步，所以把 Day 2／Day 3 對調（Day 2 改採購、Day 3 改庫存盤點），這裡也跟著往前搬，見 [`user-guide.md`](user-guide.md)
-- 兩種做法：
-  1. UI：Administration ‣ Modules，找到 `purchase`，點 Activate，存檔後點「Perform Pending Actions」
-  2. CLI（見 [`automation-notes.md`](automation-notes.md)）：`docker compose exec trytond trytond-admin -d tryton -u purchase --activate-dependencies`，之後 `docker compose restart trytond` 讓 worker 重載
+- 實際走的路徑：Administration ‣ Modules，勾選 `purchase` → 按 **ACTIVATE**（狀態變成 `To be activated`）→ 按下方 **APPLY** → 跳出「Perform Pending Activation/Upgrade」精靈 → **START UPGRADE**
+- 📸 `day2-admin-01-purchase-module-activate.png`（勾選 purchase，狀態 To be activated，尚未 Apply）、`day2-admin-02-purchase-upgrade-wizard.png`（Apply 後的確認精靈，尚未按 Start Upgrade）
+
+**執行結果（psql 複查 `ir_module`，2026-07-08）**
+
+- `purchase`：`activated`
+- **`account_invoice_stock` 也一併變成 `activated`**——一開始沒預期到多了這個模組，查了 `ir_module_dependency` 表確認：`purchase` 本身在 `tryton.cfg` 裡就宣告依賴 `account_invoice_stock`（負責把庫存異動的實際成本連回發票金額計算），Tryton 的模組啟用會自動連鎖啟用所有依賴模組，這不是操作失誤，是 `purchase` 的正常依賴鏈
+- `sale` 仍是 `not activated`（預期中，Day 4 前才啟用）
+
+---
+
+## Day 2 前置（續）：`aaa` 加入 Purchase 群組
+
+- 狀態：✅ 完成（2026-07-08，psql 複查）
+- 原因：查了 `ir_model_access` 表，`purchase.purchase`（採購單）有一筆 `group=NULL` 的規則把預設權限全部設成 `false`，`purchase.line`（採購單明細）也只有 `Stock` 群組的唯讀規則——`aaa` 現有的 Stock／Product Administration 群組只能**看到**採購單，無法建立或編輯，必須加掛 **Purchase** 群組（`res_group` id=14）
+- 選單路徑：Administration ‣ User ‣ Users → `aaa` → Access Permissions 分頁 → 勾選 **Purchase** → 存檔
+
+**執行結果（psql 複查，2026-07-08）**：`aaa` 現有 3 筆群組——`group=8`（Product Administration）、`group=10`（Stock）、`group=14`（Purchase）。
+
+**概念筆記：只需要 Purchase，還是要 Purchase + Purchase Administrator？**
+
+- 原始結論（2026-07-08 上午）：**只需要 Purchase**——查了 `ir_model_access`：`purchase.purchase`／`purchase.line` 都是靠 **Purchase** 群組拿到完整 CRUD，這是建採購單需要的核心權限；當時判斷 **Purchase Administrator** 只管 `purchase.configuration`（公司層級的採購設定單例），是 admin 才需要碰的設定層級
+- 額外查證排除了兩個潛在卡點：`ir_sequence` 已經有內建的 `Purchase` 編號序列（id=9），不用手動建；`account_invoice_payment_term` 表已有 9 筆內建付款條件（Upon Receipt／Net 30 days...），Day 2 只是在供應商身上**選一個既有的**，不需要新建，所以也不用額外的 Accounting Administration 群組
+- **更正（2026-07-08 下午，實測發現）**：上面的結論不完整。`aaa` 只掛 Purchase 群組時，Purchase Order 的 **Process** 按鈕（狀態 Confirmed → Processing，真正產生 Supplier Shipment／Invoice 的那一步）是 disabled 的。查了 `ir_model_button`／`ir_model_button-res_group` 這兩張表才找到原因：
+
+  | 按鈕 | 需要的群組 |
+  |---|---|
+  | Quote／Confirm／Cancel／Modify Header | 無（只要有 Purchase 群組的 model 層級權限就能點） |
+  | **Process** | **Purchase Administrator**（獨立限定） |
+
+- **關鍵概念：`ir.model.access`（model 層級 CRUD）跟 `ir.model.button`（按鈕層級）是兩套分開的權限機制**——`ir_model_access` 管的是「能不能讀/寫/建/刪這個 model 的資料」，`ir_model_button`／`ir_model_button-res_group` 管的是「能不能點這個特定的狀態機按鈕」，兩者互相獨立，光查 `ir_model_access` 判斷「這個群組夠不夠」是不完整的，卡到按鈕層級的權限時要另外查 `ir_model_button` 這組表
+- **最終結論**：`aaa` 要跑完整個 Day 2 流程（含 Process），需要 **Purchase + Purchase Administrator** 兩個群組都掛；查了 `group_purchase_admin` 的定義，`parent` 指向 `group_purchase`（階層上是 Purchase 的加強版），概念上比較像「有權限拍板讓採購單真正生效的人」（業務角色），不是 Stock Administration 那種偏技術性的結構管理權限
+
+**執行結果（psql 複查，2026-07-08）**：`aaa` 現有 4 筆群組——`group=8`（Product Administration）、`group=10`（Stock）、`group=14`（Purchase）、`group=15`（Purchase Administrator）。
+
+**概念筆記：為什麼 `admin` 帳號永遠什麼都能做？**
+
+- 現象：這門課一路下來，每次幫 `aaa` 加群組都要手動一個一個勾，但 `admin` 從來不需要——查了 `res_user-res_group`，`admin`（id=1）現在有 **15 筆**群組，剛好等於這個環境目前存在的全部群組數量
+- **不是 root 超級使用者豁免**：Tryton 有一個真正的系統內部帳號 `root`（id=**0**），程式邏輯裡（`ir/model.py` 的 `ModelAccess.get_access()`）明確寫著 `if Transaction().user == 0: return ...True`，直接跳過所有權限檢查——但這是保留給 `root`（id=0）的，`admin` 是 id=**1**，一般帳號，不吃這個豁免
+- **真正機制：每個模組的 XML 資料檔都會明確把 `admin` 加進自己定義的每個群組**，例如 `purchase.xml`：
+
+  ```xml
+  <record model="res.user-res.group" id="user_admin_group_purchase_admin">
+      <field name="user" ref="res.user_admin"/>
+      <field name="group" ref="group_purchase_admin"/>
+  </record>
+  ```
+
+  這是 Tryton 的模組作者慣例：模組一啟用，內建的 `admin` 帳號就自動被加進這個模組定義的所有群組（不只 Purchase，其他模組如 Stock／Account 也是同樣寫法），假設「裝這個模組的人，至少要能立刻把它用到底」，不需要另外手動授權自己
+- **實務含義**：`admin` 的「萬能」是資料驅動的明確設定，不是程式邏輯的隱藏豁免；`aaa` 這種之後才建立的一般使用者不會被自動加進新模組的群組，這也是為什麼每次啟用新模組後，都要回來重新檢查 `aaa` 是否卡在某個群組上——這是 Tryton 設計上刻意要讓「新使用者的權限」跟「模組啟用」脫鉤，不是漏做了什麼
+
+**概念筆記：職責分離（Segregation of Duties）——要不要拆多個使用者對應不同部門？**
+
+- 討論脈絡：這門課一路下來，`aaa` 陸續累積了 Product Administration／Stock／Purchase／Purchase Administrator 好幾個群組，等於一個人身兼多部門職能；真實公司裡採購、庫存、銷售通常是不同人/部門負責，Tryton 的群組機制本來就是設計來支援這種「職責分離」（Segregation of Duties, SoD）——不同部門的人只掛各自需要的群組，彼此不能越界操作
+- **這門課的決定（2026-07-08）**：維持單一 `aaa` 累積所有操作型群組，不拆成 `aaa_purchase`／`aaa_stock`／`aaa_sales` 等多個帳號。理由：課程目標是讓一個學習者體會「一件事怎麼串起另一件事」（採購入庫 → 庫存 → 銷售 → 發票），拆多帳號會讓學習者每個 Day 都要切換登入身份，徒增操作成本，換不到等比例的學習價值——職責分離是**組織設計選擇**，不是 Tryton 技術上非如此不可
+- **未來真的要導入給客戶時的考量**：真實導入專案應該依照客戶實際的部門/職掌拆分使用者與群組，讓「建採購單的人」跟「核准/Process 讓它真正生效的人」是不同角色（甚至可以用 `ir.model.button-res.group` 這種按鈕層級的權限，把「建單」和「核准」拆給不同的人，形成內控意義上的雙簽/覆核機制），而不是像這門課一樣讓單一帳號從頭做到尾
 
 ---
 

@@ -80,10 +80,12 @@ stock
 | 時間 | 內容 |
 |------|------|
 | 0.5 hr | 設定廠商的 Payment Term、幣別 |
-| 1.5 hr | 建採購單 → 確認 → 系統產生 Supplier Shipment → 驗收 → 確認入庫 |
+| 1.5 hr | 建採購單 → Quote → Confirm → **Process**（此時才產生草稿 Stock Move／發票）→ 手動建立 Supplier Shipment 把 Move 收進去 → 驗收 → 確認入庫 |
 | 1 hr | 查庫存數量確認有變動、看自動產生的 Stock Move 明細 |
  
 **關鍵概念：** Tryton 的採購不會直接異動庫存，中間一定經過 Shipment，這個設計是刻意的。
+
+**更正（2026-07-08）**：原本這裡簡化寫成「建單 → 確認」，實測後發現 Purchase 的狀態機比想像中多兩階：`Draft → Quotation → Confirmed → Processing → Done`，不是 `Draft → Confirmed`。**Quote** 把 Draft 推進到 Quotation（同時給單據編號）；**Confirm** 把 Quotation 推進到 Confirmed（只是鎖定單據，不產生任何下游動作）；**Process** 按鈕（呼叫 `_process_fulfillment`／`_process_invoice`）會產生**草稿發票**跟**未分組的草稿 Stock Move**，但**不會**自動產生 Supplier Shipment——查了官方文件（[Purchase Module usage — 8.0](https://docs.tryton.org/8.0/modules-purchase/usage/index.html)）證實 Supplier Shipment 要人工建立、手動把這些 Move 收進去（因為現實中供應商實際出貨方式不見得跟下單方式一樣），詳見 [`user-guide.md`](../manuals/user-guide.md) Day 2 的概念筆記。
 
 **順序更正（2026-07-07）**：原始規劃是 Day 2 先做庫存盤點／內部調撥、Day 3 才做採購，但實測發現一個全新環境裡 Day 1 建立的 Product 只是型錄資料，並不代表任何地點有真實庫存——沒有先跑過採購入庫，庫存操作（Internal Shipment）在 Assign 這步會卡關（"Unable to assign these products"）。改成 **Day 2 先採購入庫（本頁），Day 3 才做庫存盤點／內部調撥**，這樣 Day 3 開始操作時 Input Zone 已經有 Day 2 採購入庫產生的真實庫存，不用另外想辦法生出庫存數字，也更貼近真實商業邏輯（先進貨才有貨可以搬/盤）。
  
