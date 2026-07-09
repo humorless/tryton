@@ -17,8 +17,8 @@
 | `account_invoice` | ✅ activated |
 | `account_product` | ✅ activated |
 | `stock` | ✅ activated |
-| `sale` | ⬜ 尚未啟用（Day 4 前需要） |
-| `purchase` | ⬜ 尚未啟用（Day 2 前需要，2026-07-07 已將 Day 2／Day 3 順序對調，見 [`user-guide.md`](user-guide.md)） |
+| `sale` | ✅ activated（2026-07-09） |
+| `purchase` | ✅ activated（2026-07-08，Day 2 完成時已啟用，此表格先前未同步更新） |
 | `hello_world` | ✅ activated（自訂模組，見 [`../docs/custom-modules.md`](../docs/custom-modules.md)） |
 
 > **化簡（2026-07-07）**：原本這裡還列了 `production`（Day 5 前需要），但這份計劃鎖定「進書、庫存、賣書」的純貿易情境，不需要製造模組，已從模組清單與 Day 5–6 拿掉，見 [`../docs/business_flow.md`](../docs/business_flow.md)。
@@ -302,7 +302,35 @@
 
 ## Day 4 前置（admin 部分）：啟用 sale 模組
 
-- 狀態：⬜ 待做，同上做法，模組換成 `sale`
+- 狀態：✅ 完成（2026-07-09，psql 複查）
+- 實際走的路徑：跟 Day 2 啟用 `purchase` 完全一樣：Administration ‣ Modules，勾選 `sale` → 按 **ACTIVATE**（狀態變成 `To be activated`）→ 按下方 **APPLY** → 跳出「Perform Pending Activation/Upgrade」精靈 → **START UPGRADE**
+- 📸 `day4-admin-01-sale-module-activate.png`（勾選 sale，尚未按 Apply）
+
+**執行結果（psql 複查 `ir_module`，2026-07-09）**
+
+- `sale`：`activated`
+- **這次沒有連鎖啟用任何新模組**——跟 Day 2 啟用 `purchase` 時意外多啟用 `account_invoice_stock` 不一樣。查了 `sale` 的 `tryton.cfg`，它依賴的 `account`／`account_invoice`／`account_invoice_stock`／`account_product`／`company`／`country`／`currency`／`ir`／`party`／`product`／`res`／`stock` **在啟用前就已經全部是 `activated`**（Day 2 啟用 purchase 時已經帶進 `account_invoice_stock`），所以這次啟用沒有新的依賴鏈要補
+- 這也再次印證「模組依賴鏈是否連鎖啟用」純粹取決於當下環境已經裝了什麼，不是每個模組都會意外多裝東西，要實際查 `ir_module` 表才知道，不能憑經驗猜
+
+---
+
+## Day 4 前置（續）：`aaa` 加入 Sales／Sales Administrator 群組
+
+- 狀態：✅ 完成（2026-07-09，psql 複查）
+- 原因：查了 `ir_model_access`，`sale.sale` 有一筆 `group=NULL` 的規則把預設權限全部設成 `false`，必須掛 **Sales** 群組（`res_group` id=16）才能建立/編輯銷售單；另外查了 `ir_model_button`／`ir_model_button-res_group`，`sale.sale` 的按鈕權限跟 Day 2 的 `purchase.purchase` **完全對稱**：
+
+  | 按鈕 | 需要的群組 |
+  |---|---|
+  | Cancel／Draft／Quote／Confirm／Modify Header | 無 |
+  | **Process** | **Sales Administrator**（獨立限定） |
+  | Manual Invoice | Sales, Accounting |
+  | Manual Shipment | Sales, Stock |
+
+  要跑完整流程（含 Process，會產生 Invoice／Customer Shipment），`aaa` 需要同時掛 **Sales**、**Sales Administrator** 兩個群組——跟 Day 2 的 Purchase／Purchase Administrator 是同一套設計模式
+- 選單路徑：Administration ‣ User ‣ Users → `aaa` → Access Permissions 分頁 → 勾選 **Sales**、**Sales Administrator** → 存檔
+- 📸 `day4-admin-02-aaa-sales-groups.png`（Access Permissions 分頁，Groups 清單顯示 7 筆，含 Sales／Sales Administrator）
+
+**執行結果（psql 複查，2026-07-09）**：`res_user-res_group` 查到 `aaa` 現有 **7 筆**群組——`group=8`（Product Administration）、`group=9`（Account Product Administration）、`group=10`（Stock）、`group=14`（Purchase）、`group=15`（Purchase Administrator）、`group=16`（Sales）、`group=17`（Sales Administrator）。
 
 ---
 
