@@ -334,6 +334,40 @@
 
 ---
 
+## Day 5 前置（admin 部分）：`aaa` 加入 Accounting 群組
+
+- 狀態：✅ 完成（2026-07-13，psql 複查）
+- 原因：`aaa` 目前完全沒有 Accounting 相關群組（現有 7 筆群組是 Product Administration／Account Product Administration／Stock／Purchase／Purchase Administrator／Sales／Sales Administrator），導致兩層都卡住：
+  1. **選單層級被擋**：「Financial」最上層選單（`ir_ui_menu` id=71，Invoices／Supplier Invoices／Customer Invoices 都掛在它底下）被 `ir_ui_menu-res_group` 限制成只有 **Accounting**（id=6）或 **Accounting Administration**（id=7）才看得到——這是這門課第一次遇到「權限限制掛在最上層父選單，而不是個別葉節點選單」的案例，跟 Day 2／Day 4 的 Purchase／Sales（限制直接掛在 model access，選單本身沒設限）不一樣，值得記一筆
+  2. **model 層級權限也不夠**：查了 `ir_model_access`，`account.invoice` 對 Purchase（14）、Sales（16）群組都只給 `perm_read=true`（唯讀），只有 **Accounting** 群組才有完整 CRUD（`perm_read/write/create/delete` 全部 `true`）。也就是說就算選單看得到，沒有 Accounting 群組也無法 Post、無法登錄付款
+- 查了 `ir_model_button`／`ir_model_button-res_group`，`account.invoice` 的按鈕權限跟 Day 2／Day 4 發現的模式一致，只有 **`process`** 這顆特別限定：
+
+  | 按鈕 | 需要的群組 |
+  |---|---|
+  | Draft／Cancel／Validate／Post／Pay／Reschedule／Delegate | 無（只要有 Accounting 群組的 model 層級權限就能點） |
+  | **Process** | **Accounting Administration**（獨立限定） |
+
+- **結論**：這門課 `aaa` 只需要 Post 發票、登錄收付款，不會用到 `account.invoice` 的 Process 按鈕，所以只需要加入 **Accounting** 群組，不需要 **Accounting Administration**（那是給要設定 Chart of Accounts／Fiscal Year／Tax／Payment Term／Journal 這類公司層級會計設定的人用的，查了 `ir_model_access` 對 group=7 的規則證實這點，概念上等同 Purchase Administrator／Sales Administrator 的定位——都是「日常操作」vs「批次覆核／設定」的分工）
+- 選單路徑：Administration ‣ User ‣ Users → `aaa` → Access Permissions 分頁 → 勾選 **Accounting** → 存檔
+- 📸 `day5-admin-01-aaa-accounting-group.png`（Access Permissions 分頁，Groups 清單顯示 8 筆，含 Accounting）
+
+**執行結果（psql 複查，2026-07-13）**：`res_user-res_group` 查到 `aaa` 現有 **8 筆**群組——`group=6`（Accounting）、`group=8`（Product Administration）、`group=9`（Account Product Administration）、`group=10`（Stock）、`group=14`（Purchase）、`group=15`（Purchase Administrator）、`group=16`（Sales）、`group=17`（Sales Administrator）。
+
+---
+
+## Day 5 前置（續）：建立 Invoice Payment Method（`aaa` 這邊 PAY 按鈕不會出現）
+
+- 狀態：⬜ 待做
+- 原因：`aaa` 把採購發票 Post 完之後，發票的 **Payment** 分頁只顯示 Payment Term 算出來的到期日／金額（`Lines to Pay`），實際登錄付款用的 **PAY** 按鈕完全沒有出現——查了 `account_invoice/invoice.py` 的 `get_has_payment_method()`：Pay 按鈕要出現，前提是 `account.invoice.payment.method` 這張表**至少要有一筆**符合條件的紀錄（`debit_account`／`credit_account` 都不等於這張發票所屬的 account）；psql 查證這個環境的 `account_invoice_payment_method` 目前是 **0 筆**，從頭到尾沒人設定過，所以 Pay 按鈕整個被隱藏，不是 aaa 權限不夠
+- 查了 `ir_model_access`，`account.invoice.payment.method` 只有 **Accounting Administration** 群組（id=7）能建立/編輯，**Accounting** 群組（aaa 現有的）沒有——這是繼「Chart of Accounts／Fiscal Year／Tax／Payment Term／Journal」之後，又一個歸在 Accounting Administration 底下的「公司層級會計設定」，必須由 admin 執行
+- 環境現況（psql）：這個環境已經有現成的資源可以直接拿來設定，不用整個從零建：
+  - `account_journal`：id=3「Cash」（type=cash）
+  - `account_account`：id=35「Cash and Cash Equivalents」
+- 選單路徑（psql 查 `ir_action_keyword`／`ir_ui_menu` 覆核，原先寫的「Invoices ‣ Payment Methods」是錯的，已更正）：Financial ‣ Configuration ‣ **Journals** ‣ **Invoice Payment Methods** → 新增一筆，Journal 選 **Cash**，Debit Account／Credit Account 都選 **Cash and Cash Equivalents** → 存檔
+  - 📸 `day5-admin-02-financial-configuration-menu-tree.png`（admin 截圖 Configuration 選單樹，用來確認「Invoice Payments」資料夾底下只有 Payment Terms／Payment Means Rules，Invoice Payment Methods 其實在「Journals」資料夾底下）
+
+---
+
 ## Day 5｜會計閉環（admin 視角要看的報表）
 
 - 狀態：⬜ 待做
